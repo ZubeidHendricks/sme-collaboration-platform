@@ -13,7 +13,7 @@ async function initializeDatabase() {
   try {
     // Create database if it doesn't exist
     await pool.query(`
-      CREATE DATABASE ${process.env.DB_NAME}
+      CREATE DATABASE sme_platform
       WITH 
       ENCODING = 'UTF8'
       LC_COLLATE = 'en_US.utf8'
@@ -26,7 +26,7 @@ async function initializeDatabase() {
     const projectPool = new Pool({
       host: process.env.DB_HOST,
       port: process.env.DB_PORT,
-      database: process.env.DB_NAME,
+      database: 'sme_platform',
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD
     });
@@ -34,7 +34,7 @@ async function initializeDatabase() {
     // Run migrations
     await projectPool.query(`
       -- Create users table
-      CREATE TABLE users (
+      CREATE TABLE IF NOT EXISTS users (
           id SERIAL PRIMARY KEY,
           wallet_address VARCHAR(42) UNIQUE NOT NULL,
           name VARCHAR(255),
@@ -44,7 +44,7 @@ async function initializeDatabase() {
       );
 
       -- Create projects table
-      CREATE TABLE projects (
+      CREATE TABLE IF NOT EXISTS projects (
           id SERIAL PRIMARY KEY,
           name VARCHAR(255) NOT NULL,
           description TEXT,
@@ -58,50 +58,9 @@ async function initializeDatabase() {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-
-      -- Create skills table
-      CREATE TABLE skills (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(100) UNIQUE NOT NULL,
-          category VARCHAR(50)
-      );
-
-      -- Create project_skills table
-      CREATE TABLE project_skills (
-          project_id INTEGER REFERENCES projects(id),
-          skill_id INTEGER REFERENCES skills(id),
-          PRIMARY KEY (project_id, skill_id)
-      );
-
-      -- Create project_participants table
-      CREATE TABLE project_participants (
-          project_id INTEGER REFERENCES projects(id),
-          sme_id INTEGER REFERENCES users(id),
-          joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          status VARCHAR(20) DEFAULT 'ACTIVE',
-          PRIMARY KEY (project_id, sme_id)
-      );
-
-      -- Create indices
-      CREATE INDEX idx_users_wallet ON users(wallet_address);
-      CREATE INDEX idx_projects_status ON projects(status);
-      CREATE INDEX idx_projects_owner ON projects(owner_id);
     `);
 
     console.log('Database schema created successfully');
-
-    // Insert some initial data
-    await projectPool.query(`
-      -- Insert default skills
-      INSERT INTO skills (name, category) VALUES
-        ('Web Development', 'Technology'),
-        ('Smart Contracts', 'Blockchain'),
-        ('UI/UX Design', 'Design'),
-        ('Project Management', 'Management'),
-        ('Marketing', 'Business');
-    `);
-
-    console.log('Initial data inserted successfully');
 
   } catch (error) {
     if (error.code === '42P04') {
