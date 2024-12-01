@@ -1,44 +1,51 @@
 # SME Collaboration Platform
 
-A blockchain-based platform that enables small and medium-sized enterprises (SMEs) to collaborate effectively, access larger opportunities, and drive economic growth.
+A blockchain-based platform enabling SMEs to collaborate effectively, access larger opportunities, and drive economic growth.
 
 ## Features
 
-- Project Marketplace for opportunity discovery
+- Project Marketplace
 - Blockchain-based reputation system
-- Tokenized profit sharing
+- Smart contract-based project management
 - Decentralized governance
-- Risk mitigation tools
-- Mobile-first design
-- Offline capabilities
-
-## Technology Stack
-
-- Smart Contracts: Solidity
-- Backend: Node.js, Express
-- Frontend: React Native
-- Blockchain: Hyperledger Fabric
-- Storage: IPFS
-- AI/ML: TensorFlow
-
-## Project Structure
-
-```
-/
-├── smart-contracts/     # Blockchain smart contracts
-├── backend/            # Node.js server
-├── frontend/           # React Native mobile app
-├── contracts/          # Smart contract implementations
-└── docs/              # Documentation
-```
 
 ## Getting Started
 
-1. Clone the repository
-2. Install dependencies
-3. Set up local blockchain network
-4. Configure environment variables
-5. Run development servers
+### Prerequisites
+
+- Node.js >= 14
+- MetaMask or Web3 wallet
+- Hardhat for smart contract development
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/ZubeidHendricks/sme-collaboration-platform.git
+cd sme-collaboration-platform
+```
+
+2. Install dependencies:
+```bash
+npm install
+cd frontend && npm install
+```
+
+3. Set up environment variables:
+```bash
+cp .env.example .env
+# Edit .env with your configuration
+```
+
+4. Deploy smart contracts:
+```bash
+npx hardhat run scripts/deploy.js --network localhost
+```
+
+5. Start the application:
+```bash
+npm run dev
+```
 
 ## Contributing
 
