@@ -4,43 +4,15 @@ require('dotenv').config();
 const pool = new Pool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
-  database: 'postgres',
+  database: 'sme_platform',  // Connect directly to sme_platform database
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD
 });
 
 async function initializeDatabase() {
   try {
-    // Drop database if exists
-    try {
-      await pool.query('DROP DATABASE IF EXISTS sme_platform;');
-      console.log('Cleaned up existing database');
-    } catch (err) {
-      console.log('No existing database to clean up');
-    }
-
-    // Create database with correct collation
-    await pool.query(`
-      CREATE DATABASE sme_platform
-      WITH 
-      OWNER = postgres
-      ENCODING = 'UTF8'
-      TEMPLATE template0;
-    `);
-    
-    console.log('Database created successfully');
-
-    // Connect to the newly created database
-    const projectPool = new Pool({
-      host: process.env.DB_HOST,
-      port: process.env.DB_PORT,
-      database: 'sme_platform',
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD
-    });
-
     // Run migrations
-    await projectPool.query(`
+    await pool.query(`
       -- Create users table
       CREATE TABLE IF NOT EXISTS users (
           id SERIAL PRIMARY KEY,
@@ -76,7 +48,6 @@ async function initializeDatabase() {
     `);
 
     console.log('Database schema created successfully');
-    await projectPool.end();
 
   } catch (error) {
     console.error('Error initializing database:', error);
