@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// Main platform contract for managing SME collaborations
 contract SMEPlatform {
     struct SME {
         string name;
