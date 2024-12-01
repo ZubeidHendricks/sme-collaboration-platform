@@ -1,12 +1,17 @@
-require('@nomiclabs/hardhat-waffle');
+require("@nomicfoundation/hardhat-toolbox");
 require('dotenv').config();
 
 module.exports = {
-  solidity: '0.8.0',
+  solidity: "0.8.19",
   networks: {
-    hardhat: {},
+    hardhat: {
+      chainId: 1337
+    },
     localhost: {
-      url: 'http://127.0.0.1:8545'
+      url: "http://127.0.0.1:8545"
     }
+  },
+  paths: {
+    artifacts: "./frontend/src/artifacts",
   }
 };
