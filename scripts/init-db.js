@@ -16,8 +16,9 @@ async function initializeDatabase() {
       CREATE DATABASE sme_platform
       WITH 
       ENCODING = 'UTF8'
-      LC_COLLATE = 'en_US.utf8'
-      LC_CTYPE = 'en_US.utf8';
+      LC_COLLATE = 'English_South Africa.1252'
+      LC_CTYPE = 'English_South Africa.1252'
+      TEMPLATE template0;
     `);
     
     console.log('Database created successfully');
@@ -61,6 +62,7 @@ async function initializeDatabase() {
     `);
 
     console.log('Database schema created successfully');
+    await projectPool.end();
 
   } catch (error) {
     if (error.code === '42P04') {
