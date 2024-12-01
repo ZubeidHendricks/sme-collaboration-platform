@@ -1,5 +1,5 @@
-const IPFS = require('ipfs-http-client');
 const { create } = require('ipfs-http-client');
+const { Buffer } = require('buffer');
 
 class IPFSService {
   constructor() {
@@ -15,14 +15,18 @@ class IPFSService {
     });
   }
 
-  async uploadFile(buffer, fileName) {
+  async uploadFile(buffer, filename) {
     try {
-      const result = await this.ipfs.add({
-        path: fileName,
+      const file = {
+        path: filename,
         content: buffer
-      });
+      };
 
-      return result.cid.toString();
+      const result = await this.ipfs.add(file);
+      return {
+        hash: result.cid.toString(),
+        size: result.size
+      };
     } catch (error) {
       console.error('IPFS upload error:', error);
       throw new Error('Failed to upload file to IPFS');

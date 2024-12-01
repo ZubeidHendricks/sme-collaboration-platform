@@ -9,7 +9,7 @@ class ProjectController {
       const { name, description, budget, deadline, teamSize, skills, documents } = req.body;
       const userId = req.user.id;
 
-      // Upload documents to IPFS if provided
+      // Upload documents to IPFS
       let documentHashes = [];
       if (documents && documents.length > 0) {
         documentHashes = await Promise.all(
@@ -17,36 +17,27 @@ class ProjectController {
         );
       }
 
-      // Store project metadata
-      const projectMetadata = {
-        name,
-        description,
-        documents: documentHashes,
-        timestamp: Date.now()
-      };
-
-      // Upload metadata to IPFS
-      const metadataHash = await ipfsService.uploadJSON(projectMetadata);
-
-      // Create project in database
+      // Store in database
       const project = await db.query(
-        'INSERT INTO projects (owner_id, name, description, budget, deadline, team_size, ipfs_hash) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
-        [userId, name, description, budget, deadline, teamSize, metadataHash]
+        'INSERT INTO projects (name, description, budget, deadline, team_size, owner_id, ipfs_hash) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+        [name, description, budget, deadline, teamSize, userId, documentHashes[0]]
       );
 
-      // Store skills requirements
-      for (const skillId of skills) {
-        await db.query(
-          'INSERT INTO project_required_skills (project_id, skill_id) VALUES ($1, $2)',
-          [project.rows[0].id, skillId]
-        );
-      }
+      // Create project on blockchain
+      const provider = new ethers.providers.JsonRpcProvider(process.env.BLOCKCHAIN_RPC_URL);
+      const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+      const contract = new ethers.Contract(process.env.PROJECT_CONTRACT_ADDRESS, ProjectContract.abi, wallet);
 
-      res.status(201).json({
-        success: true,
-        projectId: project.rows[0].id,
-        ipfsHash: metadataHash
-      });
+      const tx = await contract.createProject(
+        name,
+        description,
+        ethers.utils.parseEther(budget.toString()),
+        Math.floor(new Date(deadline).getTime() / 1000),
+        teamSize
+      );
+      await tx.wait();
+
+      res.json({ success: true, projectId: project.rows[0].id });
     } catch (error) {
       console.error('Error creating project:', error);
       res.status(500).json({ error: error.message });
@@ -55,19 +46,18 @@ class ProjectController {
 
   async getProjects(req, res) {
     try {
-      const projects = await db.query(`
-        SELECT p.*, u.name as owner_name, 
-        array_agg(DISTINCT s.name) as required_skills,
-        count(DISTINCT pp.sme_id) as current_participants
-        FROM projects p
-        LEFT JOIN users u ON p.owner_id = u.id
-        LEFT JOIN project_required_skills prs ON p.id = prs.project_id
-        LEFT JOIN skills s ON prs.skill_id = s.id
-        LEFT JOIN project_participants pp ON p.id = pp.project_id
-        WHERE p.status != 'CANCELLED'
-        GROUP BY p.id, u.name
-        ORDER BY p.created_at DESC
-      `);
+      const projects = await db.query(
+        `SELECT p.*, u.name as owner_name, 
+         array_agg(ps.skill_name) as skills,
+         count(pp.sme_id) as current_team_size
+         FROM projects p
+         LEFT JOIN users u ON p.owner_id = u.id
+         LEFT JOIN project_skills ps ON p.id = ps.project_id
+         LEFT JOIN project_participants pp ON p.id = pp.project_id
+         WHERE p.status != 'CANCELLED'
+         GROUP BY p.id, u.name
+         ORDER BY p.created_at DESC`
+      );
 
       res.json(projects.rows);
     } catch (error) {
@@ -81,64 +71,33 @@ class ProjectController {
       const { projectId } = req.params;
       const userId = req.user.id;
 
-      // Check if user is already participating
+      // Check if already participating
       const existing = await db.query(
         'SELECT * FROM project_participants WHERE project_id = $1 AND sme_id = $2',
         [projectId, userId]
       );
 
       if (existing.rows.length > 0) {
-        return res.status(400).json({ error: 'Already participating in this project' });
+        return res.status(400).json({ error: 'Already participating in project' });
       }
 
-      // Add participant
+      // Add to participants
       await db.query(
-        'INSERT INTO project_participants (project_id, sme_id, role, status) VALUES ($1, $2, $3, $4)',
-        [projectId, userId, 'MEMBER', 'ACTIVE']
+        'INSERT INTO project_participants (project_id, sme_id, joined_at) VALUES ($1, $2, NOW())',
+        [projectId, userId]
       );
+
+      // Join on blockchain
+      const provider = new ethers.providers.JsonRpcProvider(process.env.BLOCKCHAIN_RPC_URL);
+      const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
+      const contract = new ethers.Contract(process.env.PROJECT_CONTRACT_ADDRESS, ProjectContract.abi, wallet);
+
+      const tx = await contract.joinProject(projectId);
+      await tx.wait();
 
       res.json({ success: true });
     } catch (error) {
       console.error('Error joining project:', error);
-      res.status(500).json({ error: error.message });
-    }
-  }
-
-  async updateProject(req, res) {
-    try {
-      const { projectId } = req.params;
-      const { status, progress, updates } = req.body;
-      const userId = req.user.id;
-
-      // Verify user is project owner or participant
-      const project = await db.query(
-        'SELECT * FROM projects WHERE id = $1 AND (owner_id = $2 OR EXISTS (SELECT 1 FROM project_participants WHERE project_id = $1 AND sme_id = $2))',
-        [projectId, userId]
-      );
-
-      if (project.rows.length === 0) {
-        return res.status(403).json({ error: 'Not authorized to update this project' });
-      }
-
-      // Update project status if provided
-      if (status) {
-        await db.query(
-          'UPDATE projects SET status = $1 WHERE id = $2',
-          [status, projectId]
-        );
-      }
-
-      // Add project update if provided
-      if (updates) {
-        await db.query(
-          'INSERT INTO project_updates (project_id, author_id, content) VALUES ($1, $2, $3)',
-          [projectId, userId, updates]
-        );
-      }
-
-      res.json({ success: true });
-    } catch (error) {
-      console.error('Error updating project:', error);
       res.status(500).json({ error: error.message });
     }
   }
