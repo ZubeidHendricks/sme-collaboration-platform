@@ -4,20 +4,27 @@ require('dotenv').config();
 const pool = new Pool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
-  database: 'postgres', // Connect to default postgres database first
+  database: 'postgres',
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD
 });
 
 async function initializeDatabase() {
   try {
-    // Create database if it doesn't exist
+    // Drop database if exists
+    try {
+      await pool.query('DROP DATABASE IF EXISTS sme_platform;');
+      console.log('Cleaned up existing database');
+    } catch (err) {
+      console.log('No existing database to clean up');
+    }
+
+    // Create database with correct collation
     await pool.query(`
       CREATE DATABASE sme_platform
       WITH 
+      OWNER = postgres
       ENCODING = 'UTF8'
-      LC_COLLATE = 'English_South Africa.1252'
-      LC_CTYPE = 'English_South Africa.1252'
       TEMPLATE template0;
     `);
     
@@ -59,18 +66,21 @@ async function initializeDatabase() {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      -- Create skills table
+      CREATE TABLE IF NOT EXISTS skills (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(100) UNIQUE NOT NULL,
+          category VARCHAR(50)
+      );
     `);
 
     console.log('Database schema created successfully');
     await projectPool.end();
 
   } catch (error) {
-    if (error.code === '42P04') {
-      console.log('Database already exists');
-    } else {
-      console.error('Error initializing database:', error);
-      throw error;
-    }
+    console.error('Error initializing database:', error);
+    throw error;
   } finally {
     await pool.end();
   }
