@@ -1,65 +1,75 @@
-const { Pool } = require('pg');
-require('dotenv').config();
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
+const fs = require('fs');
 
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: 'sme_platform',  // Connect directly to sme_platform database
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD
-});
-
-async function initializeDatabase() {
-  try {
-    // Run migrations
-    await pool.query(`
-      -- Create users table
-      CREATE TABLE IF NOT EXISTS users (
-          id SERIAL PRIMARY KEY,
-          wallet_address VARCHAR(42) UNIQUE NOT NULL,
-          name VARCHAR(255),
-          email VARCHAR(255) UNIQUE,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-
-      -- Create projects table
-      CREATE TABLE IF NOT EXISTS projects (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
-          description TEXT,
-          budget NUMERIC(15,2) NOT NULL,
-          deadline TIMESTAMP NOT NULL,
-          team_size INTEGER NOT NULL,
-          owner_id INTEGER REFERENCES users(id),
-          status VARCHAR(20) DEFAULT 'OPEN',
-          ipfs_hash VARCHAR(64),
-          blockchain_id INTEGER,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-
-      -- Create skills table
-      CREATE TABLE IF NOT EXISTS skills (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(100) UNIQUE NOT NULL,
-          category VARCHAR(50)
-      );
-    `);
-
-    console.log('Database schema created successfully');
-
-  } catch (error) {
-    console.error('Error initializing database:', error);
-    throw error;
-  } finally {
-    await pool.end();
-  }
+// Create database directory if it doesn't exist
+const dbDir = path.join(__dirname, '..', 'database');
+if (!fs.existsSync(dbDir)){
+    fs.mkdirSync(dbDir);
 }
 
-initializeDatabase()
-  .then(() => console.log('Database initialization completed'))
-  .catch(error => {
-    console.error('Database initialization failed:', error);
-    process.exit(1);
-  });
+const dbPath = path.join(dbDir, 'sme_platform.db');
+console.log('Creating database at:', dbPath);
+
+const db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+        console.error('Error opening database:', err);
+        return;
+    }
+    console.log('Connected to SQLite database');
+});
+
+// Create tables
+db.serialize(() => {
+    // Create users table
+    db.run(`
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            wallet_address TEXT UNIQUE NOT NULL,
+            name TEXT,
+            email TEXT UNIQUE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Error creating users table:', err);
+        } else {
+            console.log('Users table created successfully');
+        }
+    });
+
+    // Create projects table
+    db.run(`
+        CREATE TABLE IF NOT EXISTS projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            description TEXT,
+            budget REAL NOT NULL,
+            deadline DATETIME NOT NULL,
+            team_size INTEGER NOT NULL,
+            owner_id INTEGER,
+            status TEXT DEFAULT 'OPEN',
+            ipfs_hash TEXT,
+            blockchain_id INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (owner_id) REFERENCES users (id)
+        )
+    `, (err) => {
+        if (err) {
+            console.error('Error creating projects table:', err);
+        } else {
+            console.log('Projects table created successfully');
+        }
+    });
+});
+
+// Close the database connection
+db.close((err) => {
+    if (err) {
+        console.error('Error closing database:', err);
+        return;
+    }
+    console.log('Database connection closed');
+});
