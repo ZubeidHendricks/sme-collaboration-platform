@@ -10,7 +10,8 @@
     "dev:frontend": "cd frontend && npm start",
     "install:all": "npm install && cd frontend && npm install",
     "build": "cd frontend && npm run build",
-    "test": "hardhat test"
+    "test": "hardhat test",
+    "init-db": "node scripts/init-db.js"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.9.3",
@@ -21,7 +22,7 @@
     "ethers": "^6.9.0",
     "ipfs-http-client": "^60.0.1",
     "jsonwebtoken": "^9.0.2",
-    "pg": "^8.11.3"
+    "sqlite3": "^5.1.6"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
